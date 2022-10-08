@@ -1,52 +1,70 @@
 const Contacts = require("../contactsSchema");
 
-const listContacts = async () => {
+const listContacts = async (userId, { skip, limit }) => {
   try {
-    return Contacts.find();
+       return Contacts.find({ owner: userId })
+      .select({ __v: 0 })
+      .skip(skip)
+      .limit(limit);
   } catch (error) {
     console.log(error);
   }
 };
 
-const getContactById = async (contactId) => {
+const listContactsWithFavorite = async (userId, { skip, limit, favorite }) => {
   try {
-    return Contacts.findOne({ _id: contactId });
+      return Contacts.find({ owner: userId, favorite })
+      .select({ __v: 0 })
+      .skip(skip)
+      .limit(limit);
   } catch (error) {
     console.log(error);
   }
 };
 
-const removeContact = async (contactId) => {
+const getContactById = async (contactId, userId) => {
   try {
-    return Contacts.findByIdAndRemove(contactId);
+    return Contacts.findOne({ _id: contactId, userId });
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+const removeContact = async (contactId, userId) => {
+  try {
+    return Contacts.findByIdAndRemove({ _id: contactId, userId });
   } catch (err) {
     throw new Error(err.message);
   }
 };
 
-const addContact = async ({ name, email, phone, favorite = false }) => {
+const addContact = async ({ name, email, phone, favorite = false }, userId) => {
   try {
-    return Contacts.create({ name, email, phone, favorite });
+    return Contacts.create({ name, email, phone, favorite, owner: userId });
   } catch (err) {
     throw new Error(err.message);
   }
 };
 
-const updateContactById = async (contactId, { name, email, phone }) => {
+const updateContactById = async (contactId, { name, email, phone }, userId) => {
   try {
-    return Contacts.findByIdAndUpdate(contactId, {
-      $set: { _id: contactId, name, email, phone },
-    });
+    return Contacts.findByIdAndUpdate(
+      { _id: contactId, userId },
+      { $set: { _id: contactId, name, email, phone } }
+    );
   } catch (err) {
     throw new Error(err.message);
   }
 };
 
-const updateStatusContact = async (contactId, { favorite }) => {
+const updateStatusContact = async (contactId, { favorite }, userId) => {
   try {
-    return Contacts.findByIdAndUpdate(contactId, {
-      $set: { _id: contactId, favorite },
-    });
+    return Contacts.findByIdAndUpdate(
+      { _id: contactId, userId },
+      {
+        $set: { _id: contactId, favorite },
+      }
+    );
   } catch (err) {
     throw new Error(err.message);
   }
@@ -59,4 +77,5 @@ module.exports = {
   addContact,
   updateContactById,
   updateStatusContact,
+  listContactsWithFavorite,
 };
