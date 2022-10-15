@@ -2,7 +2,7 @@ const Contacts = require("../contactsSchema");
 
 const listContacts = async (userId, { skip, limit }) => {
   try {
-       return Contacts.find({ owner: userId })
+    return Contacts.find({ owner: userId })
       .select({ __v: 0 })
       .skip(skip)
       .limit(limit);
@@ -13,7 +13,7 @@ const listContacts = async (userId, { skip, limit }) => {
 
 const listContactsWithFavorite = async (userId, { skip, limit, favorite }) => {
   try {
-      return Contacts.find({ owner: userId, favorite })
+    return Contacts.find({ owner: userId, favorite })
       .select({ __v: 0 })
       .skip(skip)
       .limit(limit);

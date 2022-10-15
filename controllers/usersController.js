@@ -1,6 +1,10 @@
 const Joi = require("joi");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const path = require("path");
+const fs = require("fs/promises");
+const Jimp = require("jimp");
+
 const {
   getUserById,
   registerUser,
@@ -8,6 +12,7 @@ const {
   getUserIdByEmail,
   logoutUser,
   updateSubscription,
+  updateAvatar,
 } = require("../models/db-service/users");
 
 const schema = Joi.object({
@@ -118,10 +123,44 @@ const subscriptionController = async (req, res, next) => {
   }
 };
 
+const updateAvatarController = async (req, res, next) => {
+  const { path: temporaryName, originalname } = req.file;
+  try {
+    const { _id } = req.user;
+    const resultUpload = path.join(
+      __dirname,
+      "../",
+      "public",
+      "avatars",
+      `${_id}_${originalname}`
+    );
+
+    Jimp.read(temporaryName)
+      .then((img) => {
+        return img.resize(250, 250).write(resultUpload);
+      })
+      .catch((err) => {
+        throw err;
+      })
+      .finally(() => {
+        fs.unlink(req.file.path).then();
+      });
+
+    const avatarURL = path.join("public", "avatars", `${_id}_${originalname}`);
+
+    const user = await updateAvatar(_id, avatarURL);
+
+    res.json({ avatarURL: user.avatarURL });
+  } catch (error) {
+    return res.status(401).json({ message: "Not authorized" });
+  }
+};
+
 module.exports = {
   loginController,
   signupController,
   logoutController,
   currentController,
   subscriptionController,
+  updateAvatarController,
 };
