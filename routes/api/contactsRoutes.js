@@ -10,6 +10,8 @@ const {
 } = require("../../controllers/contactsController");
 const authMiddleware = require("../../middlewares/authMiddleware");
 
+// Что бы не писать в каждом маршруте /api/contacts или /api/contacts/:contactId мы прописываем этот маршрут сразу в app.js при подключении раутера app.use('/api/contacts', contactsRouter). Так что "/" === /api/contacts в данном случае.
+
 router.use(authMiddleware);
 
 router.get("/", getAllContactsController);
