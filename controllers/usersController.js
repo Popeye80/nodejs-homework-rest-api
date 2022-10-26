@@ -4,6 +4,9 @@ const jwt = require("jsonwebtoken");
 const path = require("path");
 const fs = require("fs/promises");
 const Jimp = require("jimp");
+require("dotenv").config();
+const sgMail = require("@sendgrid/mail");
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 const {
   getUserById,
@@ -13,6 +16,8 @@ const {
   logoutUser,
   updateSubscription,
   updateAvatar,
+  isUserVerificated,
+  verifyUser,
 } = require("../models/db-service/users");
 
 const schema = Joi.object({
@@ -24,6 +29,14 @@ const schema = Joi.object({
   password: Joi.string().min(6).max(25).required(),
 });
 
+const onlyEmailSchema = Joi.object({
+  email: Joi.string()
+    .email({ minDomainSegments: 2, tlds: { allow: ["com", "net"] } })
+    .required()
+    .min(5)
+    .max(35),
+});
+
 const signupController = async (req, res, next) => {
   try {
     const validationBody = schema.validate(req.body);
@@ -32,6 +45,17 @@ const signupController = async (req, res, next) => {
     }
 
     const newUser = await registerUser(req.body);
+    const BASE_URL = `http://localhost:${process.env.PORT}/api`;
+    const link = `${BASE_URL}/users/verify/${newUser.verificationToken}`;
+    const msg = {
+      to: req.body.email,
+      from: "vasiliypetrov11997@gmail.com",
+      subject: "Email verification link",
+      text: `Hello! please verify your email to end your registration!: ${link}`,
+      html: `<h1>Hello! please verify your email to end your registration!: ${link}</h1>`,
+    };
+    await sgMail.send(msg);
+
     res.status(201).json({
       email: newUser.email,
       subscription: newUser.subscription,
@@ -44,6 +68,54 @@ const signupController = async (req, res, next) => {
   }
 };
 
+const verificationController = async (req, res, next) => {
+  try {
+    const userVerified = await verifyUser(req.params.verificationToken);
+    if (!userVerified) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.json({
+      message: "Verification successful",
+    });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const sendRepeatedVerificationEmailController = async (req, res, next) => {
+  try {
+    const validationBody = onlyEmailSchema.validate(req.body);
+    if (validationBody.error) {
+      return res.status(400).json({ message: validationBody.error.message });
+    }
+    const userId = await getUserIdByEmail(req.body);
+    const isVerificated = await isUserVerificated(userId);
+    if (isVerificated) {
+      return res
+        .status(400)
+        .json({ message: "Verification has already been passed" });
+    }
+    const user = await getUserById(userId);
+    const BASE_URL = `http://localhost:${process.env.PORT}/api`;
+    const link = `${BASE_URL}/users/verify/${user.verificationToken}`;
+    const msg = {
+      to: req.body.email,
+      from: "vasiliypetrov11997@gmail.com",
+      subject: "Email verification link",
+      text: `Hello! please verify your email to end your registration!: ${link}`,
+      html: `<h1>Hello! please verify your email to end your registration!: ${link}</h1>`,
+    };
+    await sgMail.send(msg);
+
+    return res.json({
+      message: "Verification email sent",
+    });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
 const loginController = async (req, res, next) => {
   try {
     const validationBody = schema.validate(req.body);
@@ -51,6 +123,14 @@ const loginController = async (req, res, next) => {
       return res.status(400).json({ message: validationBody.error.message });
     }
     const userId = await getUserIdByEmail(req.body);
+    const isVerificated = await isUserVerificated(userId);
+
+    if (!isVerificated) {
+      return res.status(400).json({
+        message:
+          "User not certificate! Check your email for verification link.",
+      });
+    }
 
     const token = jwt.sign({ _id: userId }, process.env.JWT_SECRET);
     const user = await loginUser(userId, token);
@@ -163,4 +243,6 @@ module.exports = {
   currentController,
   subscriptionController,
   updateAvatarController,
+  verificationController,
+  sendRepeatedVerificationEmailController,
 };
